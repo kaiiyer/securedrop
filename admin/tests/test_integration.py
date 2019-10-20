@@ -44,6 +44,72 @@ securedrop_supported_locales:
 smtp_relay: smtp.gmail.com
 smtp_relay_port: 587
 ssh_users: sd
+v2_onion_services: false
+v3_onion_services: true
+'''
+
+WHEN_BOTH_TRUE = '''app_hostname: app
+app_ip: 10.20.2.2
+daily_reboot_time: 5
+dns_server: 8.8.8.8
+enable_ssh_over_tor: true
+journalist_alert_email: ''
+journalist_alert_gpg_public_key: ''
+journalist_gpg_fpr: ''
+monitor_hostname: mon
+monitor_ip: 10.20.3.2
+ossec_alert_email: test@gmail.com
+ossec_alert_gpg_public_key: sd_admin_test.pub
+ossec_gpg_fpr: 1F544B31C845D698EB31F2FF364F1162D32E7E58
+sasl_domain: gmail.com
+sasl_password: testpassword
+sasl_username: testuser
+securedrop_app_gpg_fingerprint: 1F544B31C845D698EB31F2FF364F1162D32E7E58
+securedrop_app_gpg_public_key: sd_admin_test.pub
+securedrop_app_https_certificate_cert_src: ''
+securedrop_app_https_certificate_chain_src: ''
+securedrop_app_https_certificate_key_src: ''
+securedrop_app_https_on_source_interface: false
+securedrop_supported_locales:
+- de_DE
+- es_ES
+smtp_relay: smtp.gmail.com
+smtp_relay_port: 587
+ssh_users: sd
+v2_onion_services: true
+v3_onion_services: true
+'''
+
+WHEN_ONLY_V2 = '''app_hostname: app
+app_ip: 10.20.2.2
+daily_reboot_time: 5
+dns_server: 8.8.8.8
+enable_ssh_over_tor: true
+journalist_alert_email: ''
+journalist_alert_gpg_public_key: ''
+journalist_gpg_fpr: ''
+monitor_hostname: mon
+monitor_ip: 10.20.3.2
+ossec_alert_email: test@gmail.com
+ossec_alert_gpg_public_key: sd_admin_test.pub
+ossec_gpg_fpr: 1F544B31C845D698EB31F2FF364F1162D32E7E58
+sasl_domain: gmail.com
+sasl_password: testpassword
+sasl_username: testuser
+securedrop_app_gpg_fingerprint: 1F544B31C845D698EB31F2FF364F1162D32E7E58
+securedrop_app_gpg_public_key: sd_admin_test.pub
+securedrop_app_https_certificate_cert_src: ''
+securedrop_app_https_certificate_chain_src: ''
+securedrop_app_https_certificate_key_src: ''
+securedrop_app_https_on_source_interface: false
+securedrop_supported_locales:
+- de_DE
+- es_ES
+smtp_relay: smtp.gmail.com
+smtp_relay_port: 587
+ssh_users: sd
+v2_onion_services: true
+v3_onion_services: false
 '''
 
 JOURNALIST_ALERT_OUTPUT = '''app_hostname: app
@@ -74,6 +140,8 @@ securedrop_supported_locales:
 smtp_relay: smtp.gmail.com
 smtp_relay_port: 587
 ssh_users: sd
+v2_onion_services: false
+v3_onion_services: true
 '''
 
 HTTPS_OUTPUT = '''app_hostname: app
@@ -104,6 +172,8 @@ securedrop_supported_locales:
 smtp_relay: smtp.gmail.com
 smtp_relay_port: 587
 ssh_users: sd
+v2_onion_services: false
+v3_onion_services: true
 '''
 
 
@@ -127,122 +197,137 @@ def teardown_function(function):
 
 
 def verify_username_prompt(child):
-    child.expect("Username for SSH access to the servers:")
+    child.expect(b"Username for SSH access to the servers:")
 
 
 def verify_reboot_prompt(child):
     child.expect(
-        "Daily reboot time of the server \(24\-hour clock\):", timeout=2)
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' 4'  # Expected default
+        rb"Daily reboot time of the server \(24\-hour clock\):", timeout=2)
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == '4'  # noqa: E501
 
 
 def verify_ipv4_appserver_prompt(child):
-    child.expect('Local IPv4 address for the Application Server\:', timeout=2)
+    child.expect(rb'Local IPv4 address for the Application Server\:', timeout=2)  # noqa: E501
     # Expected default
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' 10.20.2.2'
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == '10.20.2.2'  # noqa: E501
 
 
 def verify_ipv4_monserver_prompt(child):
-    child.expect('Local IPv4 address for the Monitor Server\:', timeout=2)
+    child.expect(rb'Local IPv4 address for the Monitor Server\:', timeout=2)
     # Expected default
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' 10.20.3.2'
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == '10.20.3.2'  # noqa: E501
 
 
 def verify_hostname_app_prompt(child):
-    child.expect('Hostname for Application Server\:', timeout=2)
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' app'  # Expected default
+    child.expect(rb'Hostname for Application Server\:', timeout=2)
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'app'  # noqa: E501
 
 
 def verify_hostname_mon_prompt(child):
-    child.expect('Hostname for Monitor Server\:', timeout=2)
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' mon'  # Expected default
+    child.expect(rb'Hostname for Monitor Server\:', timeout=2)
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'mon'  # noqa: E501
 
 
 def verify_dns_prompt(child):
-    child.expect('DNS server specified during installation\:', timeout=2)
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' 8.8.8.8'  # Expected default
+    child.expect(rb'DNS server specified during installation\:', timeout=2)
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == '8.8.8.8'  # noqa: E501
 
 
 def verify_app_gpg_key_prompt(child):
-    child.expect('Local filepath to public key for SecureDrop Application GPG public key\:', timeout=2)  # noqa: E501
+    child.expect(rb'Local filepath to public key for SecureDrop Application GPG public key\:', timeout=2)  # noqa: E501
 
 
 def verify_https_prompt(child):
-    child.expect('Whether HTTPS should be enabled on Source Interface \(requires EV cert\)\:', timeout=2)  # noqa: E501
+    child.expect(rb'Whether HTTPS should be enabled on Source Interface \(requires EV cert\)\:', timeout=2)  # noqa: E501
 
 
 def verify_https_cert_prompt(child):
-    child.expect('Local filepath to HTTPS certificate\:', timeout=2)
+    child.expect(rb'Local filepath to HTTPS certificate\:', timeout=2)
 
 
 def verify_https_cert_key_prompt(child):
-    child.expect('Local filepath to HTTPS certificate key\:', timeout=2)
+    child.expect(rb'Local filepath to HTTPS certificate key\:', timeout=2)
 
 
 def verify_https_cert_chain_file_prompt(child):
-    child.expect('Local filepath to HTTPS certificate chain file\:', timeout=2)
+    child.expect(rb'Local filepath to HTTPS certificate chain file\:', timeout=2)  # noqa: E501
 
 
 def verify_app_gpg_fingerprint_prompt(child):
-    child.expect('Full fingerprint for the SecureDrop Application GPG Key\:', timeout=2)  # noqa: E501
+    child.expect(rb'Full fingerprint for the SecureDrop Application GPG Key\:', timeout=2)  # noqa: E501
 
 
 def verify_ossec_gpg_key_prompt(child):
-    child.expect('Local filepath to OSSEC alerts GPG public key\:', timeout=2)  # noqa: E501
+    child.expect(rb'Local filepath to OSSEC alerts GPG public key\:', timeout=2)  # noqa: E501
 
 
 def verify_ossec_gpg_fingerprint_prompt(child):
-    child.expect('Full fingerprint for the OSSEC alerts GPG public key\:', timeout=2)  # noqa: E501
+    child.expect(rb'Full fingerprint for the OSSEC alerts GPG public key\:', timeout=2)  # noqa: E501
 
 
 def verify_admin_email_prompt(child):
-    child.expect('Admin email address for receiving OSSEC alerts\:', timeout=2)  # noqa: E501
+    child.expect(rb'Admin email address for receiving OSSEC alerts\:', timeout=2)  # noqa: E501
 
 
 def verify_journalist_gpg_key_prompt(child):
-    child.expect('Local filepath to journalist alerts GPG public key \(optional\)\:', timeout=2)  # noqa: E501
+    child.expect(rb'Local filepath to journalist alerts GPG public key \(optional\)\:', timeout=2)  # noqa: E501
 
 
 def verify_journalist_fingerprint_prompt(child):
-    child.expect('Full fingerprint for the journalist alerts GPG public key \(optional\)\:', timeout=2)  # noqa: E501
+    child.expect(rb'Full fingerprint for the journalist alerts GPG public key \(optional\)\:', timeout=2)  # noqa: E501
 
 
 def verify_journalist_email_prompt(child):
-    child.expect('Email address for receiving journalist alerts \(optional\)\:', timeout=2)  # noqa: E501
+    child.expect(rb'Email address for receiving journalist alerts \(optional\)\:', timeout=2)  # noqa: E501
 
 
 def verify_smtp_relay_prompt(child):
-    child.expect('SMTP relay for sending OSSEC alerts\:', timeout=2)
+    child.expect(rb'SMTP relay for sending OSSEC alerts\:', timeout=2)
     # Expected default
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' smtp.gmail.com'
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'smtp.gmail.com'  # noqa: E501
 
 
 def verify_smtp_port_prompt(child):
-    child.expect('SMTP port for sending OSSEC alerts\:', timeout=2)
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' 587'  # Expected default
+    child.expect(rb'SMTP port for sending OSSEC alerts\:', timeout=2)
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == '587'  # noqa: E501
 
 
 def verify_sasl_domain_prompt(child):
-    child.expect('SASL domain for sending OSSEC alerts\:', timeout=2)
+    child.expect(rb'SASL domain for sending OSSEC alerts\:', timeout=2)
     # Expected default
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' gmail.com'
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'gmail.com'  # noqa: E501
 
 
 def verify_sasl_username_prompt(child):
-    child.expect('SASL username for sending OSSEC alerts\:', timeout=2)
+    child.expect(rb'SASL username for sending OSSEC alerts\:', timeout=2)
 
 
 def verify_sasl_password_prompt(child):
-    child.expect('SASL password for sending OSSEC alerts\:', timeout=2)
+    child.expect(rb'SASL password for sending OSSEC alerts\:', timeout=2)
 
 
 def verify_ssh_over_lan_prompt(child):
-    child.expect('will be available over LAN only\:', timeout=2)
-    assert ANSI_ESCAPE.sub('', child.buffer) == ' yes'  # Expected default
+    child.expect(rb'will be available over LAN only\:', timeout=2)
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'yes'  # noqa: E501
 
 
 def verify_locales_prompt(child):
-    child.expect('Space separated list of additional locales to support')  # noqa: E501
+    child.expect(rb'Space separated list of additional locales to support')  # noqa: E501
+
+
+def verify_v2_onion_for_first_time(child):
+    child.expect(rb' installed before 1.0.0\)\?\:', timeout=2)  # noqa: E501
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'no'  # noqa: E501
+
+
+def verify_v3_onion_for_first_time(child):
+    child.expect(rb'Do you want to enable v3 onion services \(recommended\)\?\:', timeout=2)  # noqa: E501
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'yes'  # noqa: E501
+
+
+def verify_v3_onion_when_v2_is_enabled(child):
+    child.expect(rb'Do you want to enable v3 onion services \(recommended\)\?\:', timeout=2)  # noqa: E501
+    assert ANSI_ESCAPE.sub('', child.buffer.decode("utf-8")).strip() == 'yes'  # noqa: E501
 
 
 def test_sdconfig_on_first_run():
@@ -292,6 +377,10 @@ def test_sdconfig_on_first_run():
     child.sendline('')
     verify_locales_prompt(child)
     child.sendline('de_DE es_ES')
+    verify_v2_onion_for_first_time(child)
+    child.sendline('\b' * 3 + 'no')
+    verify_v3_onion_for_first_time(child)
+    child.sendline('\b' * 4 + 'yes')
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for validation to occur
     child.close()
@@ -301,6 +390,130 @@ def test_sdconfig_on_first_run():
     with open(os.path.join(SD_DIR, 'install_files/ansible-base/group_vars/all/site-specific')) as fobj:    # noqa: E501
         data = fobj.read()
     assert data == OUTPUT1
+
+
+def test_sdconfig_both_v2_v3_true():
+    cmd = os.path.join(os.path.dirname(CURRENT_DIR),
+                       'securedrop_admin/__init__.py')
+    child = pexpect.spawn('python {0} --root {1} sdconfig'.format(cmd, SD_DIR))
+    verify_username_prompt(child)
+    child.sendline('')
+    verify_reboot_prompt(child)
+    child.sendline('\b5')  # backspace and put 5
+    verify_ipv4_appserver_prompt(child)
+    child.sendline('')
+    verify_ipv4_monserver_prompt(child)
+    child.sendline('')
+    verify_hostname_app_prompt(child)
+    child.sendline('')
+    verify_hostname_mon_prompt(child)
+    child.sendline('')
+    verify_dns_prompt(child)
+    child.sendline('')
+    verify_app_gpg_key_prompt(child)
+    child.sendline('\b' * 14 + 'sd_admin_test.pub')
+    verify_https_prompt(child)
+    # Default answer is no
+    child.sendline('')
+    verify_app_gpg_fingerprint_prompt(child)
+    child.sendline('1F544B31C845D698EB31F2FF364F1162D32E7E58')
+    verify_ossec_gpg_key_prompt(child)
+    child.sendline('\b' * 9 + 'sd_admin_test.pub')
+    verify_ossec_gpg_fingerprint_prompt(child)
+    child.sendline('1F544B31C845D698EB31F2FF364F1162D32E7E58')
+    verify_admin_email_prompt(child)
+    child.sendline('test@gmail.com')
+    verify_journalist_gpg_key_prompt(child)
+    child.sendline('')
+    verify_smtp_relay_prompt(child)
+    child.sendline('')
+    verify_smtp_port_prompt(child)
+    child.sendline('')
+    verify_sasl_domain_prompt(child)
+    child.sendline('')
+    verify_sasl_username_prompt(child)
+    child.sendline('testuser')
+    verify_sasl_password_prompt(child)
+    child.sendline('testpassword')
+    verify_ssh_over_lan_prompt(child)
+    child.sendline('')
+    verify_locales_prompt(child)
+    child.sendline('de_DE es_ES')
+    verify_v2_onion_for_first_time(child)
+    child.sendline('\b' * 3 + 'yes')
+    verify_v3_onion_when_v2_is_enabled(child)
+    child.sendline('\b' * 3 + 'yes')
+
+    child.expect(pexpect.EOF, timeout=10)  # Wait for validation to occur
+    child.close()
+    assert child.exitstatus == 0
+    assert child.signalstatus is None
+
+    with open(os.path.join(SD_DIR, 'install_files/ansible-base/group_vars/all/site-specific')) as fobj:    # noqa: E501
+        data = fobj.read()
+    assert data == WHEN_BOTH_TRUE
+
+
+def test_sdconfig_only_v2_true():
+    cmd = os.path.join(os.path.dirname(CURRENT_DIR),
+                       'securedrop_admin/__init__.py')
+    child = pexpect.spawn('python {0} --root {1} sdconfig'.format(cmd, SD_DIR))
+    verify_username_prompt(child)
+    child.sendline('')
+    verify_reboot_prompt(child)
+    child.sendline('\b5')  # backspace and put 5
+    verify_ipv4_appserver_prompt(child)
+    child.sendline('')
+    verify_ipv4_monserver_prompt(child)
+    child.sendline('')
+    verify_hostname_app_prompt(child)
+    child.sendline('')
+    verify_hostname_mon_prompt(child)
+    child.sendline('')
+    verify_dns_prompt(child)
+    child.sendline('')
+    verify_app_gpg_key_prompt(child)
+    child.sendline('\b' * 14 + 'sd_admin_test.pub')
+    verify_https_prompt(child)
+    # Default answer is no
+    child.sendline('')
+    verify_app_gpg_fingerprint_prompt(child)
+    child.sendline('1F544B31C845D698EB31F2FF364F1162D32E7E58')
+    verify_ossec_gpg_key_prompt(child)
+    child.sendline('\b' * 9 + 'sd_admin_test.pub')
+    verify_ossec_gpg_fingerprint_prompt(child)
+    child.sendline('1F544B31C845D698EB31F2FF364F1162D32E7E58')
+    verify_admin_email_prompt(child)
+    child.sendline('test@gmail.com')
+    verify_journalist_gpg_key_prompt(child)
+    child.sendline('')
+    verify_smtp_relay_prompt(child)
+    child.sendline('')
+    verify_smtp_port_prompt(child)
+    child.sendline('')
+    verify_sasl_domain_prompt(child)
+    child.sendline('')
+    verify_sasl_username_prompt(child)
+    child.sendline('testuser')
+    verify_sasl_password_prompt(child)
+    child.sendline('testpassword')
+    verify_ssh_over_lan_prompt(child)
+    child.sendline('')
+    verify_locales_prompt(child)
+    child.sendline('de_DE es_ES')
+    verify_v2_onion_for_first_time(child)
+    child.sendline('\b' * 3 + 'yes')
+    verify_v3_onion_when_v2_is_enabled(child)
+    child.sendline('\b' * 3 + 'no')
+
+    child.expect(pexpect.EOF, timeout=10)  # Wait for validation to occur
+    child.close()
+    assert child.exitstatus == 0
+    assert child.signalstatus is None
+
+    with open(os.path.join(SD_DIR, 'install_files/ansible-base/group_vars/all/site-specific')) as fobj:    # noqa: E501
+        data = fobj.read()
+    assert data == WHEN_ONLY_V2
 
 
 def test_sdconfig_enable_journalist_alerts():
@@ -355,6 +568,10 @@ def test_sdconfig_enable_journalist_alerts():
     child.sendline('')
     verify_locales_prompt(child)
     child.sendline('de_DE es_ES')
+    verify_v2_onion_for_first_time(child)
+    child.sendline('\b' * 3 + 'no')
+    verify_v3_onion_for_first_time(child)
+    child.sendline('\b' * 4 + 'yes')
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for validation to occur
     child.close()
@@ -425,6 +642,10 @@ def test_sdconfig_enable_https_on_source_interface():
     child.sendline('')
     verify_locales_prompt(child)
     child.sendline('de_DE es_ES')
+    verify_v2_onion_for_first_time(child)
+    child.sendline('\b' * 3 + 'no')
+    verify_v3_onion_for_first_time(child)
+    child.sendline('\b' * 4 + 'yes')
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for validation to occur
     child.close()
@@ -485,10 +706,10 @@ def set_reliable_keyserver(gpgdir):
     if not os.path.exists(gpgconf_path):
         os.mkdir(gpgdir)
         with open(gpgconf_path, 'a') as f:
-            f.write('keyserver hkp://ipv4.pool.sks-keyservers.net')
+            f.write('keyserver hkps://keys.openpgp.org')
 
         # Ensure correct permissions on .gnupg home directory.
-        os.chmod(gpgdir, 0700)
+        os.chmod(gpgdir, 0o0700)
 
 
 @flaky(max_runs=3)
@@ -500,7 +721,7 @@ def test_check_for_update_when_updates_needed(securedrop_git_repo):
     fullcmd = 'coverage run {0} --root {1} check_for_updates'.format(
                 cmd, ansible_base)
     child = pexpect.spawn(fullcmd)
-    child.expect('Update needed', timeout=20)
+    child.expect(b'Update needed', timeout=20)
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for CLI to exit
     child.close()
@@ -524,7 +745,7 @@ def test_check_for_update_when_updates_not_needed(securedrop_git_repo):
     fullcmd = 'coverage run {0} --root {1} check_for_updates'.format(
         cmd, ansible_base)
     child = pexpect.spawn(fullcmd)
-    child.expect('All updates applied', timeout=20)
+    child.expect(b'All updates applied', timeout=20)
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for CLI to exit
     child.close()
@@ -545,8 +766,8 @@ def test_update(securedrop_git_repo):
         cmd, ansible_base))
 
     output = child.read()
-    assert 'Updated to SecureDrop' in output
-    assert 'Signature verification successful' in output
+    assert b'Updated to SecureDrop' in output
+    assert b'Signature verification successful' in output
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for CLI to exit
     child.close()
@@ -575,8 +796,8 @@ def test_update_fails_when_no_signature_present(securedrop_git_repo):
     child = pexpect.spawn('coverage run {0} --root {1} update'.format(
                           cmd, ansible_base))
     output = child.read()
-    assert 'Updated to SecureDrop' not in output
-    assert 'Signature verification failed' in output
+    assert b'Updated to SecureDrop' not in output
+    assert b'Signature verification failed' in output
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for CLI to exit
     child.close()
@@ -609,9 +830,9 @@ def test_update_with_duplicate_branch_and_tag(securedrop_git_repo):
                           cmd, ansible_base))
     output = child.read()
     # Verify that we do not falsely check out a branch instead of a tag.
-    assert 'Switched to branch' not in output
-    assert 'Updated to SecureDrop' not in output
-    assert 'Signature verification failed' in output
+    assert b'Switched to branch' not in output
+    assert b'Updated to SecureDrop' not in output
+    assert b'Signature verification failed' in output
 
     child.expect(pexpect.EOF, timeout=10)  # Wait for CLI to exit
     child.close()

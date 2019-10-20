@@ -4,7 +4,6 @@
 # Wrapper around debian build logic to bootstrap virtualenv
 
 set -e
-set -u
 set -o pipefail
 
 . ./devops/scripts/boot-strap-venv.sh
@@ -23,4 +22,14 @@ case "$RUN_TESTS" in
         molecule_action=test
         ;;
 esac
-molecule "${molecule_action}" -s "${SCENARIO_NAME}"
+
+case "$SD_DEBUG_BUILD_DEBS" in
+    [yY][eE][sS])
+        DEBUG="--debug"
+        ;;
+    *)
+        DEBUG=""
+        ;;
+esac
+
+molecule ${DEBUG} "${molecule_action}" -s "${SCENARIO_NAME}"

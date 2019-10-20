@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import grp
 import os
@@ -6,6 +6,8 @@ import io
 import pwd
 import sys
 import subprocess
+
+from shutil import copyfile
 
 
 # check for root
@@ -20,11 +22,21 @@ path_desktop = '/home/amnesia/Desktop/'
 path_persistent_desktop = '/lib/live/mount/persistence/TailsData_unlocked/dotfiles/Desktop/'  # noqa: E501
 path_securedrop_root = '/home/amnesia/Persistent/securedrop'
 path_securedrop_admin_venv = os.path.join(path_securedrop_root,
-                                          'admin/.venv/bin/python')
+                                          'admin/.venv3/bin/python')
 path_securedrop_admin_init = os.path.join(path_securedrop_root,
                                           'admin/securedrop_admin/__init__.py')
 path_gui_updater = os.path.join(path_securedrop_root,
                                 'journalist_gui/SecureDropUpdater')
+
+paths_v3_authfiles = {
+        "app-journalist": os.path.join(path_securedrop_root,
+                                       'install_files/ansible-base/app-journalist.auth_private'),
+        "app-ssh": os.path.join(path_securedrop_root,
+                                'install_files/ansible-base/app-ssh.auth_private'),
+        "mon-ssh": os.path.join(path_securedrop_root,
+                                'install_files/ansible-base/mon-ssh.auth_private')
+}
+path_onion_auth_dir = '/var/lib/tor/onion_auth'
 
 # load torrc_additions
 if os.path.isfile(path_torrc_additions):
@@ -52,11 +64,35 @@ else:
 with io.open(path_torrc, 'w') as f:
     f.write(torrc + torrc_additions)
 
-# reload tor
+# check for v3 aths files
+v3_authfiles_present = False
+for f in paths_v3_authfiles.values():
+    if os.path.isfile(f):
+        v3_authfiles_present = True
+
+# if there are v3 authfiles, make dir and copy them into place
+debian_tor_uid = pwd.getpwnam("debian-tor").pw_uid
+debian_tor_gid = grp.getgrnam("debian-tor").gr_gid
+
+if not os.path.isdir(path_onion_auth_dir):
+    os.mkdir(path_onion_auth_dir)
+
+os.chmod(path_onion_auth_dir, 0o700)
+os.chown(path_onion_auth_dir, debian_tor_uid, debian_tor_gid)
+
+for key, f in paths_v3_authfiles.items():
+    if os.path.isfile(f):
+        filename = os.path.basename(f)
+        new_f = os.path.join(path_onion_auth_dir, filename)
+        copyfile(f, new_f)
+        os.chmod(new_f, 0o400)
+        os.chown(new_f, debian_tor_uid, debian_tor_gid)
+
+# restart tor
 try:
-    subprocess.check_call(['systemctl', 'reload', 'tor@default.service'])
+    subprocess.check_call(['systemctl', 'restart', 'tor@default.service'])
 except subprocess.CalledProcessError:
-    sys.exit('Error reloading Tor')
+    sys.exit('Error restarting Tor')
 
 # Turn off "automatic-decompression" in Nautilus to ensure the original
 # submission filename is restored (see
@@ -90,7 +126,14 @@ for shortcut in ['source.desktop', 'journalist.desktop']:
     subprocess.call(['ln', '-s', path_persistent_desktop + shortcut,
                      path_desktop + shortcut], env=env)
     subprocess.call(['gio', 'set', path_desktop + shortcut,
-                     'metadata::trusted', 'yes'], env=env)
+                     'metadata::trusted', 'true'], env=env)
+
+# in Tails 4, reload gnome-shell desktop icons extension to update with changes above
+cmd = ["lsb_release", "--id", "--short"]
+p = subprocess.check_output(cmd)
+distro_id = p.rstrip()
+if distro_id == 'Debian' and os.uname()[1] == 'amnesia':
+    subprocess.call(['gnome-shell-extension-tool', '-r', 'desktop-icons@csoriano'], env=env)
 
 # reacquire uid0 and notify the user
 os.setresuid(0, 0, -1)

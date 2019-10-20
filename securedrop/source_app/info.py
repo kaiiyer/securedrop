@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-
-from io import StringIO
 from flask import Blueprint, render_template, send_file, current_app
+
+from io import BytesIO  # noqa
 
 
 def make_blueprint(config):
@@ -19,7 +19,8 @@ def make_blueprint(config):
     def download_journalist_pubkey():
         journalist_pubkey = current_app.crypto_util.gpg.export_keys(
             config.JOURNALIST_KEY)
-        return send_file(StringIO(journalist_pubkey),
+        data = BytesIO(journalist_pubkey.encode('utf-8'))
+        return send_file(data,
                          mimetype="application/pgp-keys",
                          attachment_filename=config.JOURNALIST_KEY + ".asc",
                          as_attachment=True)

@@ -1,19 +1,18 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from distutils.version import StrictVersion
 import pretty_bad_protocol as gnupg
 import os
 import io
-import six
 import scrypt
-import subprocess
 from random import SystemRandom
 
 from base64 import b32encode
 from datetime import date
 from flask import current_app
 from pretty_bad_protocol._util import _is_stream, _make_binary_stream
+
+import rm
 
 import typing
 # https://www.python.org/dev/peps/pep-0484/#runtime-or-type-checking
@@ -23,6 +22,7 @@ if typing.TYPE_CHECKING:
     # statements has to be marked as noqa.
     # http://flake8.pycqa.org/en/latest/user/error-codes.html?highlight=f401stream
     from typing import Dict, List, Text  # noqa: F401
+
 
 # to fix gpg error #78 on production
 os.environ['USERNAME'] = 'www-data'
@@ -38,16 +38,16 @@ DICEWARE_SAFE_CHARS = (' !#%$&)(+*-1032547698;:=?@acbedgfihkjmlonqpsrutwvyxzA'
 
 
 def monkey_patch_delete_handle_status(self, key, value):
-        """Parse a status code from the attached GnuPG process.
-        :raises: :exc:`~exceptions.ValueError` if the status message is unknown.
-        """
-        if key in ("DELETE_PROBLEM", "KEY_CONSIDERED"):
-            self.status = self.problem_reason.get(value, "Unknown error: %r"
-                                                  % value)
-        elif key in ("PINENTRY_LAUNCHED"):
-            self.status = key.replace("_", " ").lower()
-        else:
-            raise ValueError("Unknown status message: %r" % key)
+    """
+    Parse a status code from the attached GnuPG process.
+    :raises: :exc:`~exceptions.ValueError` if the status message is unknown.
+    """
+    if key in ("DELETE_PROBLEM", "KEY_CONSIDERED"):
+        self.status = self.problem_reason.get(value, "Unknown error: %r" % value)
+    elif key in ("PINENTRY_LAUNCHED"):
+        self.status = key.replace("_", " ").lower()
+    else:
+        raise ValueError("Unknown status message: %r" % key)
 
 
 # Monkey patching to resolve https://github.com/freedomofpress/securedrop/issues/4294
@@ -122,11 +122,9 @@ class CryptoUtil:
     def do_runtime_tests(self):
         if self.scrypt_id_pepper == self.scrypt_gpg_pepper:
             raise AssertionError('scrypt_id_pepper == scrypt_gpg_pepper')
-        # crash if we don't have srm:
-        try:
-            subprocess.check_call(['srm'], stdout=subprocess.PIPE)
-        except subprocess.CalledProcessError:
-            pass
+        # crash if we don't have a way to securely remove files
+        if not rm.check_secure_delete_capability():
+            raise AssertionError("Secure file deletion is not possible.")
 
     def get_wordlist(self, locale):
         # type: (Text) -> List[str]
@@ -279,9 +277,7 @@ class CryptoUtil:
                                              salt=self.scrypt_gpg_pepper)
         data = self.gpg.decrypt(ciphertext, passphrase=hashed_codename).data
 
-        if not six.PY2:  # Python3
-            return data.decode('utf-8')
-        return data
+        return data.decode('utf-8')
 
 
 def clean(s, also=''):

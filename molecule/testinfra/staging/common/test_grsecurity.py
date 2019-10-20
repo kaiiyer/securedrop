@@ -12,7 +12,7 @@ def test_ssh_motd_disabled(host):
     """
     f = host.file("/etc/pam.d/sshd")
     assert f.is_file
-    assert not f.contains("pam\.motd")
+    assert not f.contains(r"pam\.motd")
 
 
 @pytest.mark.parametrize("package", [
@@ -52,7 +52,7 @@ def test_generic_kernels_absent(host, package):
     c = host.run("dpkg -l {}".format(package))
     assert c.rc == 1
     error_text = "dpkg-query: no packages found matching {}".format(package)
-    assert c.stderr == error_text
+    assert error_text in c.stderr.strip()
 
 
 def test_grsecurity_lock_file(host):
@@ -61,7 +61,7 @@ def test_grsecurity_lock_file(host):
     `grsec_lock` file, which is automatically created by grsecurity.
     """
     f = host.file("/proc/sys/kernel/grsecurity/grsec_lock")
-    assert oct(f.mode) == "0600"
+    assert f.mode == 0o600
     assert f.user == "root"
     assert f.size == 0
 
@@ -71,8 +71,8 @@ def test_grsecurity_kernel_is_running(host):
     Make sure the currently running kernel is specific grsec kernel.
     """
     c = host.run('uname -r')
-    assert c.stdout.endswith('-grsec')
-    assert c.stdout == '{}-grsec'.format(KERNEL_VERSION)
+    assert c.stdout.strip().endswith('-grsec')
+    assert c.stdout.strip() == '{}-grsec'.format(KERNEL_VERSION)
 
 
 @pytest.mark.parametrize('sysctl_opt', [
@@ -119,7 +119,7 @@ def test_grsecurity_paxtest(host, paxtest_check):
             c = host.run("paxtest blackhat")
             assert c.rc == 0
             assert "Vulnerable" not in c.stdout
-            regex = "^{}\s*:\sKilled$".format(re.escape(paxtest_check))
+            regex = r"^{}\s*:\sKilled$".format(re.escape(paxtest_check))
             assert re.search(regex, c.stdout)
 
 
@@ -130,7 +130,7 @@ def test_grub_pc_marked_manual(host):
     """
     c = host.run('apt-mark showmanual grub-pc')
     assert c.rc == 0
-    assert c.stdout == "grub-pc"
+    assert c.stdout.strip() == "grub-pc"
 
 
 def test_apt_autoremove(host):
@@ -192,3 +192,15 @@ def test_wireless_disabled_in_kernel_config(host, kernel_opts):
 
     line = "# CONFIG_{} is not set".format(kernel_opts)
     assert line in kernel_config
+
+
+def test_mds_mitigations_and_smt_disabled(host):
+    """
+    Ensure that full mitigations are in place for MDS
+    see https://www.kernel.org/doc/html/latest/admin-guide/hw-vuln/mds.html
+    """
+
+    grub_config_path = "/boot/grub/grub.cfg"
+    grub_config = host.file(grub_config_path)
+
+    assert grub_config.contains("mds=full,nosmt")

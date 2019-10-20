@@ -7,8 +7,8 @@ wanted_apache_headers:
   - 'Header set X-XSS-Protection: "1; mode=block"'
   - 'Header set X-Content-Type-Options: nosniff'
   - 'Header set X-Download-Options: noopen'
-  - "Header set X-Content-Security-Policy: \"default-src 'self'\""
-  - "Header set Content-Security-Policy: \"default-src 'self'\""
+  - "Header set X-Content-Security-Policy: \"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';\""
+  - "Header set Content-Security-Policy: \"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';\""
   - 'Header unset Etag'
 
 securedrop_code: /var/www/securedrop
@@ -56,6 +56,7 @@ tor_services:
     ports:
       - "80"
     authenticated: no
+    version: 2
 
   - name: journalist
     ports:
@@ -63,6 +64,19 @@ tor_services:
       - "8080"
     authenticated: yes
     client: journalist
+    version: 2
+
+  - name: journalistv3
+    ports:
+      - "80"
+    authenticated: yes
+    version: 3
+
+  - name: sourcev3
+    ports:
+      - "80"
+    authenticated: no
+    version: 3
 
 # Staging permits presence of "source-error.log".
 allowed_apache_logfiles:
@@ -178,4 +192,4 @@ log_events_with_ossec_alerts:
     rule_id: "400700"
 
 fpf_apt_repo_url: "https://apt-test.freedom.press"
-grsec_version: "4.4.177"
+grsec_version: "4.4.182"

@@ -9,8 +9,8 @@ ENV USER_ID ${USER_ID:-0}
 RUN apt-get update && apt-get install -y paxctl && \
     { apt-get install -y libgtk2.0 || echo 'libgtk2.0 was not installed'; } && \
     paxctl -cm /usr/bin/mono-sgen && dpkg-reconfigure mono-runtime-sgen && \
-    apt-get install -y devscripts vim \
-                       python3-pip libpython3.5-dev libssl-dev secure-delete \
+    apt-get install -y apache2-dev coreutils devscripts dh-virtualenv vim \
+                       python3-pip python3-all python3-venv virtualenv libpython3.5-dev libssl-dev \
                        gnupg2 ruby redis-server git xvfb haveged curl wget \
                        gettext paxctl x11vnc enchant libffi-dev sqlite3 gettext sudo \
                        libasound2 libdbus-glib-1-2 libgtk2.0-0 libfontconfig1 libxrender1 \
@@ -29,7 +29,7 @@ RUN curl -LO https://ftp.mozilla.org/pub/firefox/releases/${FF_ESR_VER}/linux-x8
 
 COPY ./tor_project_public.pub /opt/
 
-ENV TBB_VERSION 8.5
+ENV TBB_VERSION 8.5.5
 RUN gpg --import /opt/tor_project_public.pub && \
     wget  https://www.torproject.org/dist/torbrowser/${TBB_VERSION}/tor-browser-linux64-${TBB_VERSION}_en-US.tar.xz && \
     wget https://www.torproject.org/dist/torbrowser/${TBB_VERSION}/tor-browser-linux64-${TBB_VERSION}_en-US.tar.xz.asc && \
@@ -48,18 +48,14 @@ RUN wget https://github.com/mozilla/geckodriver/releases/download/v0.24.0/geckod
     paxctl -cm /bin/geckodriver
 
 COPY requirements requirements
-RUN pip3 install --require-hashes -r requirements/securedrop-app-code-requirements.txt && \
-    pip3 install -r requirements/test-requirements.txt && \
-    pip3 install --upgrade setuptools  # Fixes #4036 pybabel requires latest version of setuptools
-
-RUN pip3 install supervisor
-
-# Temporary workaround: Revert when python 3 is deployed to prod
-RUN sudo rm /usr/bin/python && sudo ln -s /usr/bin/python3 /usr/bin/python
+RUN python3 -m venv /opt/venvs/securedrop-app-code && \
+    /opt/venvs/securedrop-app-code/bin/pip3 install --require-hashes -r requirements/python3/securedrop-app-code-requirements.txt && \
+    /opt/venvs/securedrop-app-code/bin/pip3 install --require-hashes -r requirements/python3/test-requirements.txt
 
 RUN if test $USER_NAME != root ; then useradd --no-create-home --home-dir /tmp --uid $USER_ID $USER_NAME && echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers ; fi && \
     cp -r /root/.local /tmp/ && chmod +x /tmp/.local/tbb/tor-browser_en-US/Browser/firefox && chmod -R 777 /tmp/.local && \
-    chown -R $USER_NAME.$USER_NAME /tmp/.local/
+    chown -R $USER_NAME.$USER_NAME /tmp/.local/ && \
+    chown -R $USER_NAME.$USER_NAME /opt/venvs/securedrop-app-code/
 
 STOPSIGNAL SIGKILL
 

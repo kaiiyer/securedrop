@@ -1,8 +1,73 @@
 # Changelog
 
-## 0.14.0~rc1
+## 1.1.0~rc1
 
+## 1.0.0
 
+### Web Applications
+
+* UI: refresh source and journalist interface design (#4634, #4666).
+* Update copyright dates (#4638).
+* Update language selector design in the menu to be more accessible (#4662).
+* Add commands to manage.py for admins to detect and correct deletion issues (#4713).
+* Use shred instead of srm to securely delete files (#4713).
+* Bug fix: Invalidate Session When Admin Resets Journalist Password (#2300).
+* Bug fix: Interrupted deletion jobs are now resumed on reboot (#4713).
+* Bug fix: Clean up any orphaned submissions/replies where source has already been deleted (#4672).
+* Bug fix: Resolve a bug with the “Select unread” feature on the journalist interface (#4654).
+
+### Operations
+
+* Use dh-virtualenv and mod_wsgi to create securedrop-app-code package, run Python 3 version of the web applications on instances (#4622).
+* Adds support for v3 onion services for SecureDrop source, journalist, and SSH interfaces (#4652, #4710, #4690, #4675).
+* Adds warning in securedrop-admin sdconfig if v3 onion services and HTTPS on the source interface are both enabled (#4720).
+* Uses latest Tor series (0.4.x) instead of LTS (0.3.x) series (#4658).
+* Move tasks removing old kernels to common Ansible role (#4641).
+
+### Documentation
+
+* Update translator documentation (#4719).
+* Fix incorrect alias name in firewall documentation, update screenshots (#4685).
+* Remove redundant Tails guide (#4673).
+* Remove old printer troubleshooting guide (#4651).
+
+## 0.14.0
+
+### Web Applications
+
+* Add support for setting journalist names, and expose via journalist API (#4425, #4459).
+* Update instructions for sources regarding Tor Browser 8.5 security settings (#4462,  #4494).
+* Replace cloud icon with download icon in source interface (#4548).
+* Expose supported locales in source interface metadata API (#4467).
+* Remove unnecessary FontAwesome CSS from source interface (#4464).
+* Bug fix: If sessions expire on /generate on the source interface, redirect to index (#4496).
+* Add explanatory text for authenticator reset buttons in Journalist interface (#3274)
+
+### Operations
+
+* Use archive module for securedrop-admin logs command (#4497).
+* Fix Ansible deprecation warnings (#4499).
+* Update grsecurity kernels to version 4.4.182 (#4543).
+* Add intel-microcode as dependency (#4543).
+* Update securedrop-keyring to 0.1.3: update expiration of signing key and add uid (#4578)
+* Switch to keys.openpgp.org as the default keyserver (#4576)
+* Update securedrop-admin tool to use only hkps://keys.openpgp.org when retrieving release key (#4585)
+
+### Developer Workflow
+
+* Add new functional test of /metadata endpoint (#4536).
+* Add workaround for Circle CI’s problems with branch filtering  (#4505).
+* Automatically rerun flaky admin tests (#4466).
+* Improve localization manager documentation and update script used for gathering translator names (#4493, #4482, #4469).
+
+### Documentation
+
+* Update SecureDrop screenshots for source, journalist and admin guides (#4564)
+* Update Admin Workstation setup instructions to use keys.openpgp.org (#4586)
+
+## 0.13.1
+
+* Fix download of Journalist GPG key via Source Interface (#4523)
 
 ## 0.13.0
 

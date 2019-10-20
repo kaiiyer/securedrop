@@ -10,7 +10,6 @@ monitor_ip: "{{ hostvars['mon-staging']['ansible_'+primary_network_iface].ipv4.a
 monitor_hostname: "{{ hostvars['mon-staging'].ansible_hostname }}"
 app_ip: "{{ hostvars['app-staging']['ansible_'+primary_network_iface].ipv4.address }}"
 app_hostname: "{{ hostvars['app-staging'].ansible_hostname }}"
-tor_apt_repo_url: "https://tor-apt.freedom.press"
 securedrop_code: "/var/www/securedrop"
 
 etc_hosts:
@@ -27,3 +26,7 @@ etc_hosts:
 
 # Set Xenial as apt repo channel for hosting deb packages
 rep_dist: xenial
+
+# Override path to repo root, to use the nested repo on the previous version.
+# See molecule/shared/sd_clone.yml for details on the path structure.
+sd_root_dir: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/sd-orig"

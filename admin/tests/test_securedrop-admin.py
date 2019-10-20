@@ -18,13 +18,14 @@
 #
 
 import io
+import os
 import argparse
 from flaky import flaky
 from os.path import dirname, join, basename, exists
+import json
 import mock
 from prompt_toolkit.validation import ValidationError
 import pytest
-import string
 import subprocess
 import textwrap
 import yaml
@@ -57,8 +58,8 @@ class TestSecureDropAdmin(object):
     def test_check_for_updates_update_needed(self, tmpdir, caplog):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
-        current_tag = "0.6"
-        tags_available = "0.6\n0.6-rc1\n0.6.1\n"
+        current_tag = b"0.6"
+        tags_available = b"0.6\n0.6-rc1\n0.6.1\n"
 
         with mock.patch('subprocess.check_call'):
             with mock.patch('subprocess.check_output',
@@ -71,8 +72,8 @@ class TestSecureDropAdmin(object):
     def test_check_for_updates_higher_version(self, tmpdir, caplog):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
-        current_tag = "0.6"
-        tags_available = "0.1\n0.10.0\n0.6.2\n0.6\n0.6-rc1\n0.9.0\n"
+        current_tag = b"0.6"
+        tags_available = b"0.1\n0.10.0\n0.6.2\n0.6\n0.6-rc1\n0.9.0\n"
 
         with mock.patch('subprocess.check_call'):
             with mock.patch('subprocess.check_output',
@@ -86,8 +87,8 @@ class TestSecureDropAdmin(object):
         """Regression test for #3426"""
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
-        current_tag = "0.6.1\n"
-        tags_available = "0.6\n0.6-rc1\n0.6.1\n"
+        current_tag = b"0.6.1\n"
+        tags_available = b"0.6\n0.6-rc1\n0.6.1\n"
 
         with mock.patch('subprocess.check_call'):
             with mock.patch('subprocess.check_output',
@@ -100,8 +101,8 @@ class TestSecureDropAdmin(object):
     def test_check_for_updates_update_not_needed(self, tmpdir, caplog):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
-        current_tag = "0.6.1"
-        tags_available = "0.6\n0.6-rc1\n0.6.1\n"
+        current_tag = b"0.6.1"
+        tags_available = b"0.6\n0.6-rc1\n0.6.1\n"
 
         with mock.patch('subprocess.check_call'):
             with mock.patch('subprocess.check_output',
@@ -116,8 +117,8 @@ class TestSecureDropAdmin(object):
         verify that users will not accidentally check out this tag."""
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
-        current_tag = "0.6.1"
-        tags_available = "0.6\n0.6-rc1\n0.6.1\n0.6.1-rc1\n"
+        current_tag = b"0.6.1"
+        tags_available = b"0.6\n0.6-rc1\n0.6.1\n0.6.1-rc1\n"
 
         with mock.patch('subprocess.check_call'):
             with mock.patch('subprocess.check_output',
@@ -138,47 +139,6 @@ class TestSecureDropAdmin(object):
             assert "Updated to SecureDrop" not in caplog.text
             assert ret_code == 0
 
-    def test_update_gpg_recv_primary_key_failure(self, tmpdir, caplog):
-        """We should try a secondary keyserver if for some reason the primary
-        keyserver is not available."""
-
-        git_repo_path = str(tmpdir)
-        args = argparse.Namespace(root=git_repo_path)
-
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '22245C81E3BAEB4138B36061310F561200F4AD77\n'
-                      'gpg: Good signature from "SecureDrop Release '
-                      'Signing Key" [unknown]\n')
-
-        patchers = [
-            mock.patch('securedrop_admin.check_for_updates',
-                       return_value=(True, "0.6.1")),
-            mock.patch('subprocess.check_call'),
-            mock.patch('subprocess.check_output',
-                       side_effect=[
-                           git_output,
-                           subprocess.CalledProcessError(1, 'cmd',
-                                                         'not a valid ref')]),
-            mock.patch('securedrop_admin.get_release_key_from_keyserver',
-                       side_effect=[
-                           subprocess.CalledProcessError(1, 'cmd', 'BANG'),
-                           None])
-            ]
-
-        for patcher in patchers:
-            patcher.start()
-
-        try:
-            ret_code = securedrop_admin.update(args)
-            assert "Applying SecureDrop updates..." in caplog.text
-            assert "Signature verification successful." in caplog.text
-            assert "Updated to SecureDrop" in caplog.text
-            assert ret_code == 0
-        finally:
-            for patcher in patchers:
-                patcher.stop()
-
     def test_get_release_key_from_valid_keyserver(self, tmpdir, caplog):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
@@ -190,16 +150,35 @@ class TestSecureDropAdmin(object):
             securedrop_admin.get_release_key_from_keyserver(
                 args, keyserver='test.com')
 
-    def test_update_signature_verifies(self, tmpdir, caplog):
+    @pytest.mark.parametrize("git_output",
+                             [b'gpg: Signature made Tue 13 Mar '
+                              b'2018 01:14:11 AM UTC\n'
+                              b'gpg:                using RSA key '
+                              b'22245C81E3BAEB4138B36061310F561200F4AD77\n'
+                              b'gpg: Good signature from "SecureDrop Release '
+                              b'Signing Key" [unknown]\n',
+
+                              b'gpg: Signature made Thu 20 Jul '
+                              b'2017 08:12:25 PM EDT\n'
+                              b'gpg:                using RSA key '
+                              b'22245C81E3BAEB4138B36061310F561200F4AD77\n'
+                              b'gpg: Good signature from "SecureDrop Release '
+                              b'Signing Key '
+                              b'<securedrop-release-key@freedom.press>"\n',
+
+                              b'gpg: Signature made Thu 20 Jul '
+                              b'2017 08:12:25 PM EDT\n'
+                              b'gpg:                using RSA key '
+                              b'22245C81E3BAEB4138B36061310F561200F4AD77\n'
+                              b'gpg: Good signature from "SecureDrop Release '
+                              b'Signing Key" [unknown]\n'
+                              b'gpg:                 aka "SecureDrop Release '
+                              b'Signing Key '
+                              b'<securedrop-release-key@freedom.press>" '
+                              b'[unknown]\n'])
+    def test_update_signature_verifies(self, tmpdir, caplog, git_output):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
-
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '22245C81E3BAEB4138B36061310F561200F4AD77\n'
-                      'gpg: Good signature from "SecureDrop Release '
-                      'Signing Key" [unknown]\n')
-
         patchers = [
             mock.patch('securedrop_admin.check_for_updates',
                        return_value=(True, "0.6.1")),
@@ -208,7 +187,7 @@ class TestSecureDropAdmin(object):
                        side_effect=[
                            git_output,
                            subprocess.CalledProcessError(1, 'cmd',
-                                                         'not a valid ref')]),
+                                                         b'not a valid ref')]),
             ]
 
         for patcher in patchers:
@@ -228,11 +207,11 @@ class TestSecureDropAdmin(object):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
 
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '22245C81E3BAEB4138B36061310F561200F4AD77\n'
-                      'gpg: Good signature from "SecureDrop Release '
-                      'Signing Key" [unknown]\n')
+        git_output = (b'gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
+                      b'gpg:                using RSA key '
+                      b'22245C81E3BAEB4138B36061310F561200F4AD77\n'
+                      b'gpg: Good signature from "SecureDrop Release '
+                      b'Signing Key" [unknown]\n')
 
         patchers = [
             mock.patch('securedrop_admin.check_for_updates',
@@ -242,7 +221,7 @@ class TestSecureDropAdmin(object):
                        side_effect=[
                            git_output,
                            subprocess.CalledProcessError(1, 'cmd',
-                                                         'a random error')]),
+                                                         b'a random error')]),
             ]
 
         for patcher in patchers:
@@ -262,11 +241,11 @@ class TestSecureDropAdmin(object):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
 
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '22245C81E3BAEB4138B36061310F561200F4AD77\n'
-                      'gpg: BAD signature from "SecureDrop Release '
-                      'Signing Key" [unknown]\n')
+        git_output = (b'gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
+                      b'gpg:                using RSA key '
+                      b'22245C81E3BAEB4138B36061310F561200F4AD77\n'
+                      b'gpg: BAD signature from "SecureDrop Release '
+                      b'Signing Key" [unknown]\n')
 
         with mock.patch('securedrop_admin.check_for_updates',
                         return_value=(True, "0.6.1")):
@@ -283,11 +262,11 @@ class TestSecureDropAdmin(object):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
 
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '1234567812345678123456781234567812345678\n'
-                      'gpg: Good signature from "22245C81E3BAEB4138'
-                      'B36061310F561200F4AD77" [unknown]\n')
+        git_output = (b'gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
+                      b'gpg:                using RSA key '
+                      b'1234567812345678123456781234567812345678\n'
+                      b'gpg: Good signature from "22245C81E3BAEB4138'
+                      b'B36061310F561200F4AD77" [unknown]\n')
 
         with mock.patch('securedrop_admin.check_for_updates',
                         return_value=(True, "0.6.1")):
@@ -304,11 +283,11 @@ class TestSecureDropAdmin(object):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
 
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '1234567812345678123456781234567812345678\n'
-                      'gpg: Good signature from Good signature from '
-                      '"SecureDrop Release Signing Key" [unknown]\n')
+        git_output = (b'gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
+                      b'gpg:                using RSA key '
+                      b'1234567812345678123456781234567812345678\n'
+                      b'gpg: Good signature from Good signature from '
+                      b'"SecureDrop Release Signing Key" [unknown]\n')
 
         with mock.patch('securedrop_admin.check_for_updates',
                         return_value=(True, "0.6.1")):
@@ -326,12 +305,12 @@ class TestSecureDropAdmin(object):
         git_repo_path = str(tmpdir)
         args = argparse.Namespace(root=git_repo_path)
 
-        git_output = ('gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
-                      'gpg:                using RSA key '
-                      '1234567812345678123456781234567812345678\n'
-                      'gpg: Good signature from 22245C81E3BAEB4138'
-                      'B36061310F561200F4AD77 Good signature from '
-                      '"SecureDrop Release Signing Key" [unknown]\n')
+        git_output = (b'gpg: Signature made Tue 13 Mar 2018 01:14:11 AM UTC\n'
+                      b'gpg:                using RSA key '
+                      b'1234567812345678123456781234567812345678\n'
+                      b'gpg: Good signature from 22245C81E3BAEB4138'
+                      b'B36061310F561200F4AD77 Good signature from '
+                      b'"SecureDrop Release Signing Key" [unknown]\n')
 
         with mock.patch('securedrop_admin.check_for_updates',
                         return_value=(True, "0.6.1")):
@@ -458,7 +437,7 @@ class TestSiteConfig(object):
         assert validator.validate(Document('good@mail.com'))
         with pytest.raises(ValidationError) as e:
             validator.validate(Document('ossec@ossec.test'))
-        assert 'something other than ossec@ossec.test' in e.value.message
+        assert 'something other than ossec@ossec.test' in str(e)
 
     def test_validate_optional_email(self):
         validator = securedrop_admin.SiteConfig.ValidateOptionalEmail()
@@ -575,22 +554,22 @@ class TestSiteConfig(object):
         with pytest.raises(ValidationError) as e:
             validator.validate(Document(
                 "65A1B5FF195B56353CC63DFFCC40EF1228271441"))
-        assert 'TEST journalist' in e.value.message
+        assert 'TEST journalist' in str(e)
 
         with pytest.raises(ValidationError) as e:
             validator.validate(Document(
                 "600BC6D5142C68F35DDBCEA87B597104EDDDC102"))
-        assert 'TEST admin' in e.value.message
+        assert 'TEST admin' in str(e)
 
         with pytest.raises(ValidationError) as e:
             validator.validate(Document(
                 "0000"))
-        assert '40 hexadecimal' in e.value.message
+        assert '40 hexadecimal' in str(e)
 
         with pytest.raises(ValidationError) as e:
             validator.validate(Document(
                 "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"))
-        assert '40 hexadecimal' in e.value.message
+        assert '40 hexadecimal' in str(e)
 
     def test_validate_optional_fingerprint(self):
         validator = securedrop_admin.SiteConfig.ValidateOptionalFingerprint()
@@ -623,7 +602,7 @@ class TestSiteConfig(object):
         assert validator.validate(Document('en_US  fr_FR '))
         with pytest.raises(ValidationError) as e:
             validator.validate(Document('BAD'))
-        assert 'BAD' in e.value.message
+        assert 'BAD' in str(e)
 
     def test_save(self, tmpdir):
         site_config_path = join(str(tmpdir), 'site_config')
@@ -674,7 +653,7 @@ class TestSiteConfig(object):
             site_config.config = bad_config
             with pytest.raises(securedrop_admin.FingerprintException) as e:
                 site_config.validate_gpg_keys()
-            assert 'FAIL does not match' in e.value.message
+            assert 'FAIL does not match' in str(e)
 
     def test_journalist_alert_email(self):
         args = argparse.Namespace(site_config='INVALID',
@@ -700,13 +679,13 @@ class TestSiteConfig(object):
         with pytest.raises(
                 securedrop_admin.JournalistAlertEmailException) as e:
             site_config.validate_journalist_alert_email()
-        assert 'not be empty' in e.value.message
+        assert 'not be empty' in str(e)
 
         site_config.config['journalist_alert_email'] = 'bademail'
         with pytest.raises(
                 securedrop_admin.JournalistAlertEmailException) as e:
             site_config.validate_journalist_alert_email()
-        assert 'Must contain a @' in e.value.message
+        assert 'Must contain a @' in str(e)
 
         site_config.config['journalist_alert_email'] = 'good@email.com'
         assert site_config.validate_journalist_alert_email()
@@ -777,6 +756,8 @@ class TestSiteConfig(object):
     def verify_desc_consistency_optional(self, site_config, desc):
         (var, default, etype, prompt, validator, transform, condition) = desc
         # verify the default passes validation
+        if callable(default):
+            default = default()
         assert site_config.user_prompt_config_one(desc, None) == default
         assert type(default) == etype
 
@@ -785,6 +766,12 @@ class TestSiteConfig(object):
         (var, default, etype, prompt, validator, transform, condition) = desc
         with pytest.raises(ValidationError):
             site_config.user_prompt_config_one(desc, '')
+            # If we are testing v3_onion_services, that will create a default
+            # value of 'yes', means it will not raise the ValidationError. We
+            # are generating it below for test to behave properly with all
+            # other test cases.
+            if var == "v3_onion_services":
+                raise ValidationError()
 
     def verify_prompt_boolean(
             self, site_config, desc):
@@ -793,6 +780,34 @@ class TestSiteConfig(object):
         assert site_config.user_prompt_config_one(desc, True) is True
         assert site_config.user_prompt_config_one(desc, False) is False
         assert site_config.user_prompt_config_one(desc, 'YES') is True
+        assert site_config.user_prompt_config_one(desc, 'NO') is False
+
+    def verify_prompt_boolean_for_v3(
+            self, site_config, desc):
+        """As v3_onion_services input depends on input of
+           v2_onion_service, the answers will change.
+        """
+        self.verify_desc_consistency(site_config, desc)
+        (var, default, etype, prompt, validator, transform, condition) = desc
+        assert site_config.user_prompt_config_one(desc, True) is True
+        # Because if no v2_onion_service, v3 will become True
+        assert site_config.user_prompt_config_one(desc, False) is True
+        assert site_config.user_prompt_config_one(desc, 'YES') is True
+        # Because if no v2_onion_service, v3 will become True
+        assert site_config.user_prompt_config_one(desc, 'NO') is True
+
+        # Now we will set v2_onion_services as True so that we
+        # can set v3_onion_service as False. This is the case
+        # when an admin particularly marked v3 as False.
+        site_config._config_in_progress = {"v2_onion_services": True}
+        site_config.config = {"v3_onion_services": False}
+
+        # The next two tests should use the default from the above line,
+        # means it will return False value.
+        assert site_config.user_prompt_config_one(desc, True) is False
+        assert site_config.user_prompt_config_one(desc, 'YES') is False
+
+        assert site_config.user_prompt_config_one(desc, False) is False
         assert site_config.user_prompt_config_one(desc, 'NO') is False
 
     def test_desc_conditional(self):
@@ -847,6 +862,8 @@ class TestSiteConfig(object):
     verify_prompt_enable_ssh_over_tor = verify_prompt_boolean
 
     verify_prompt_securedrop_app_gpg_public_key = verify_desc_consistency
+    verify_prompt_v2_onion_services = verify_prompt_boolean
+    verify_prompt_v3_onion_services = verify_prompt_boolean_for_v3
 
     def verify_prompt_not_empty(self, site_config, desc):
         with pytest.raises(ValidationError):
@@ -934,7 +951,7 @@ class TestSiteConfig(object):
             assert value == site_config.validated_input(
                 '', value, lambda: True, None)
             assert value.lower() == site_config.validated_input(
-                '', value, lambda: True, string.lower)
+                '', value, lambda: True, str.lower)
             assert 'yes' == site_config.validated_input(
                 '', True, lambda: True, None)
             assert 'no' == site_config.validated_input(
@@ -969,3 +986,77 @@ class TestSiteConfig(object):
         with pytest.raises(yaml.YAMLError) as e:
             site_config.load()
         assert 'issue processing' in caplog.text
+
+
+def test_generate_new_v3_keys():
+    public, private = securedrop_admin.generate_new_v3_keys()
+
+    for key in [public, private]:
+        # base32 padding characters should be removed
+        assert '=' not in key
+        assert len(key) == 52
+
+
+def test_find_or_generate_new_torv3_keys_first_run(tmpdir, capsys):
+    args = argparse.Namespace(ansible_path=str(tmpdir))
+
+    return_code = securedrop_admin.find_or_generate_new_torv3_keys(args)
+
+    captured = capsys.readouterr()
+    assert 'Tor v3 onion service keys generated' in captured.out
+    assert return_code == 0
+
+    secret_key_path = os.path.join(args.ansible_path,
+                                   "tor_v3_keys.json")
+
+    with open(secret_key_path) as f:
+        v3_onion_service_keys = json.load(f)
+
+    expected_keys = ['app_journalist_public_key',
+                     'app_journalist_private_key',
+                     'app_ssh_public_key',
+                     'app_ssh_private_key',
+                     'mon_ssh_public_key',
+                     'mon_ssh_private_key']
+    for key in expected_keys:
+        assert key in v3_onion_service_keys.keys()
+
+
+def test_find_or_generate_new_torv3_keys_subsequent_run(tmpdir, capsys):
+    args = argparse.Namespace(ansible_path=str(tmpdir))
+
+    secret_key_path = os.path.join(args.ansible_path,
+                                   "tor_v3_keys.json")
+    old_keys = {'foo': 'bar'}
+    with open(secret_key_path, 'w') as f:
+        json.dump(old_keys, f)
+
+    return_code = securedrop_admin.find_or_generate_new_torv3_keys(args)
+
+    captured = capsys.readouterr()
+    assert 'Tor v3 onion service keys already exist' in captured.out
+    assert return_code == 0
+
+    with open(secret_key_path) as f:
+        v3_onion_service_keys = json.load(f)
+
+    assert v3_onion_service_keys == old_keys
+
+
+def test_v3_and_https_cert_message(tmpdir, capsys):
+    args = argparse.Namespace(site_config='UNKNOWN',
+                              ansible_path='tests/files',
+                              app_path=dirname(__file__))
+    site_config = securedrop_admin.SiteConfig(args)
+    site_config.config = {"v3_onion_services": False,
+                          "securedrop_app_https_certificate_cert_src": "ab.crt"}  # noqa: E501
+    # This should return True as v3 is not setup
+    assert site_config.validate_https_and_v3()
+
+    # This should return False as v3 and https are both setup
+    site_config.config.update({"v3_onion_services": True})
+    assert not site_config.validate_https_and_v3()
+
+    # This should return True as https is not setup
+    site_config.config.update({"securedrop_app_https_certificate_cert_src": ""})  # noqa: E501
+    assert site_config.validate_https_and_v3()

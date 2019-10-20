@@ -53,7 +53,7 @@ Attacks to the Application Code — *Source Interface* and *Journalist Interface
 
 Countermeasures on both *Source* and *Journalist Interfaces*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--  *Interfaces* run on an end-to-end encrypted Tor hidden service
+-  *Interfaces* run on an end-to-end encrypted Tor Onion Service
 -  Sensitive source and submission data is sent through HTTP POST
 -  All source submissions are encrypted with GPG at rest using the airgapped *Submission Key*
 -  *Interface* sessions are invalidated after a user logs out or inactivity over 120 minutes
@@ -62,7 +62,7 @@ Countermeasures on both *Source* and *Journalist Interfaces*
 -  A number of mitigations are in place as protection against malicious input vulnerabilities on the Source and Journalist Interfaces:
 
     - X-XSS-PROTECTION is enabled
-    - Content-Security-Policy is set to self
+    - Content-Security-Policy is set to "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';"
     - SQLAlchemy is used as ORM for all database queries
     - Application does not execute uploaded submission data
 -  A number of mitigations are in place as protection against the risk of an HTTP misconfiguration on the *Source* and *Journalist Interfaces*:
@@ -70,7 +70,7 @@ Countermeasures on both *Source* and *Journalist Interfaces*
     - Cache control header is set to “no store;”
     - HTTP headers do not expose version information of system components
     - X-Content-Type is set to "nosniff;"
-    - Content-Security-Policy is set to "self;"
+    - Content-Security-Policy is set to "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';"
     - X-XSS-Protection is set to "1"
 
 Countermeasures unique to *Source Interface*
@@ -87,7 +87,7 @@ Countermeasures unique to *Source Interface*
 
 Countermeasures unique to *Journalist Interface*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--  *Journalist Interface* is located behind an authenticated hidden service and only privileged users have required authorization token
+-  *Journalist Interface* is located behind an authenticated Onion Service and only privileged users have required authorization token
 -  Only HTTP GET, POST, HEAD and DELETE methods are allowed
 -  A number of mitigations are in place as protection against access control vulnerabilities on the *Journalist Interface*:
 
@@ -115,7 +115,7 @@ Countermeasures on Both *Application* and *Monitor Servers*
 -  All SecureDrop infrastructure is provisioned via infrastructure-as-code (Ansible scripts)
 -  A cron job ensures that automatic nightly security updates are applied for OS packages
 -  *Journalist Interface* uses ATHS cookie
--  *Monitor Server* should only expose SSH via Tor hidden service. All other traffic should be blocked by firewall
+-  *Monitor Server* should only expose SSH via Tor Onion Service. All other traffic should be blocked by firewall
 
 Countermeasures Unique to *Application Server*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -134,7 +134,7 @@ Attacks on SecureDrop Dependencies
 -  Known vulnerabilities in Python or libraries used by SecureDrop
 -  Known vulnerabilities in Tor (incl. Onion Service cryptography, authentication)
 -  Malicious apt package installed at install-time or during updates
--  Known weakness in hidden service cryptography
+-  Known weakness in Onion Service cryptography
 -  Github is compromised
 -  Firewall is not up-to-date
 -  Tails ISO malicious
@@ -231,6 +231,6 @@ Countermeasures in User Behavior Recommendations
 -  `Journalist Guide <https://docs.securedrop.org/en/stable/journalist.html>`__ informs users of malware risks, the importance of strict comparmentalization of SecureDrop-related activities
 -  `SecureDrop Deployment Guide <https://docs.securedrop.org/en/stable/deployment_practices.html>`__ gives best practices for proper administration of the SecureDrop system, and its public-facing properties like the Landing Page
 -  `Admin Guide <https://docs.securedrop.org/en/stable/admin.html>`__ gives instructions for long-term maintenance of the technical properties of the SecureDrop system, as well as operations to support Journalists
--  All Admin tasks are completed over Tor/Tor authenticated hidden services after installation
--  Any Journalist/Admin password/2FA token resets can only be done by an Admin with password-protected SSH capability or authenticated hidden service credentials.
+-  All Admin tasks are completed over Tor/Tor authenticated Onion Services after installation
+-  Any Journalist/Admin password/2FA token resets can only be done by an Admin with password-protected SSH capability or authenticated Onion Service credentials.
 -  Persistent storage on the Admin Workstation is protected with LUKS/dm-crypt encryption
